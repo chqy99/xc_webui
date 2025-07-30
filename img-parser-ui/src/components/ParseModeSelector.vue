@@ -1,3 +1,4 @@
+<!-- components/ParseModeSelector.vue -->
 <template>
   <el-form label-width="80px" style="font-size: 16px;">
     <el-form-item label="解析模式">
