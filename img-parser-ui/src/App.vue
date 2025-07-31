@@ -1,7 +1,13 @@
 <template>
   <el-container style="height: 100vh;">
     <el-header height="60px" style="padding: 0;">
-      <TopMenu @open-image="onOpenImage" @parse-request="onParseRequest"/>
+      <TopMenu
+        @open-image="onOpenImage"
+        @parse-request="onParseRequest"
+        @assist-labeling-request="onAssistLabelingRequest"
+        @set-labeling-mode="onSetLabelingMode"
+        @toggle-labeling-dialog="onToggleLabelingDialog"
+      />
     </el-header>
 
     <el-container style="flex: 1; overflow: hidden;">
@@ -12,21 +18,18 @@
       <div @mousedown="startDrag('nav')" style="width: 6px; cursor: col-resize; background: #ddd;"></div>
 
       <el-container style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-        <!-- 画布区，上方flex自动撑满 -->
         <el-main
           :style="{ flex: canvasFlex, position: 'relative', overflow: 'auto', background: '#fff', padding: '10px' }"
           ref="canvasContainer"
         >
-          <CanvasView :layer="selectedLayer" />
+          <CanvasView :layer="selectedLayer" :labelingMode="currentLabelingMode" />
         </el-main>
 
-        <!-- 拖拽条，调整画布和属性栏高度 -->
         <div
           @mousedown="startDrag('attr')"
           style="height: 6px; cursor: row-resize; background: #ddd;"
         ></div>
 
-        <!-- 属性栏，高度可调 -->
         <el-footer
           :style="{
             height: attrHeight + 'px',
@@ -42,6 +45,20 @@
         </el-footer>
       </el-container>
     </el-container>
+
+    <el-dialog
+      v-model="showLabelingDialog"
+      :show-close="true" :close-on-click-modal="false" :close-on-press-escape="true" :modal="false" :draggable="true" :fullscreen="false" width="300px"              :align-center="false"      class="labeling-dialog-no-header" :style="{ top: '70px', left: '20px' }" @close="onCloseLabelingDialog" >
+      <template>
+        <div class="labeling-dialog-header">
+          <span :id="titleId" :class="titleClass">标注工具</span> <el-button circle :icon="Close" @click="close" /> </div>
+      </template>
+
+      <LabelingToolbar
+        @assist-labeling-request="onAssistLabelingRequest"
+        @set-labeling-mode="onSetLabelingMode"
+      />
+    </el-dialog>
   </el-container>
 </template>
 
@@ -51,8 +68,10 @@ import TopMenu from '@/views/TopMenu.vue'
 import SideNav from '@/views/SideNav.vue'
 import CanvasView from '@/views/CanvasView.vue'
 import AttributePanel from '@/views/AttributePanel.vue'
+import LabelingToolbar from '@/components/LabelingToolbar.vue'
 import { ElMessage } from 'element-plus'
-import { uploadImage, parseImage } from '@/api/parser'
+import { uploadImage, parseImage, assistLabel } from '@/api/parser'
+import { Close } from '@element-plus/icons-vue' // 导入 Element Plus 的关闭图标
 
 const navWidth = ref(250)
 const attrHeight = ref(250)
@@ -62,13 +81,12 @@ const startY = ref(0)
 const startNavWidth = ref(0)
 const startAttrHeight = ref(0)
 
-// 计算画布flex，根据attrHeight动态调整
+const currentLabelingMode = ref(null)
+const showLabelingDialog = ref(false)
+
 const canvasFlex = computed(() => {
-  // el-container高度100vh，去掉header 60px和拖拽条6px
   const totalHeight = window.innerHeight - 60 - 6
-  // 画布高度 = totalHeight - 属性栏高度
   const canvasHeight = totalHeight - attrHeight.value
-  // 转换成flex值，比例即可
   return canvasHeight > 0 ? `0 0 ${canvasHeight}px` : '1'
 })
 
@@ -91,7 +109,7 @@ function onDrag(e) {
     if (newWidth > 400) newWidth = 400
     navWidth.value = newWidth
   } else if (dragging.value === 'attr') {
-    const deltaY = startY.value - e.clientY // 往上拖是增加属性栏高度
+    const deltaY = startY.value - e.clientY
     let newHeight = startAttrHeight.value + deltaY
     if (newHeight < 150) newHeight = 150
     if (newHeight > 400) newHeight = 400
@@ -115,7 +133,8 @@ async function onOpenImage(image) {
     uid: uid,
     label: image.name,
     url: image.url,
-    base64: image.base64
+    base64: image.base64,
+    annotations: []
   }]
   selectedLayer.value = layers.value[0]
 }
@@ -131,12 +150,49 @@ async function onParseRequest({ mode, prompt }) {
   }
 
   const data = await parseImage({
-    uid: selectedLayer.value.uid,  // ✅ 使用 uid 而不是 base64
+    uid: selectedLayer.value.uid,
     mode,
     prompt
   })
 
   selectedLayer.value.units = data.units || []
+}
+
+async function onAssistLabelingRequest({ mode, prompt }) {
+  if (!selectedLayer.value || !selectedLayer.value.uid) {
+    ElMessage.warning('请先打开图像才能进行辅助标注')
+    return
+  }
+
+  try {
+    const data = await assistLabel({
+      uid: selectedLayer.value.uid,
+      mode: mode,
+      prompt: prompt
+    });
+    console.log('辅助标注结果:', data);
+    ElMessage.success('辅助标注请求已发送');
+  } catch (error) {
+      if (error.response && error.response.data && error.response.data.detail) {
+        ElMessage.error('辅助标注失败: ' + error.response.data.detail);
+      } else {
+        ElMessage.error('辅助标注失败: ' + error.message);
+      }
+  }
+}
+
+function onSetLabelingMode(mode) {
+  currentLabelingMode.value = mode;
+  ElMessage.info(`标注模式已切换为: ${mode}`);
+}
+
+function onToggleLabelingDialog() {
+  showLabelingDialog.value = !showLabelingDialog.value;
+}
+
+// 新增方法：当 el-dialog 关闭时，更新 showLabelingDialog 状态
+function onCloseLabelingDialog() {
+  showLabelingDialog.value = false;
 }
 </script>
 
@@ -146,5 +202,53 @@ body,
 #app {
   height: 100%;
   margin: 0;
+}
+
+/* 隐藏 el-dialog 默认的头部区域，以便我们自定义 */
+.labeling-dialog-no-header :deep(.el-dialog__header) {
+  display: none; /* 完全隐藏默认头部 */
+}
+
+/* 调整 el-dialog 的主体内容区域，移除默认 padding 和背景 */
+.labeling-dialog-no-header :deep(.el-dialog__body) {
+  padding: 0px; /* 移除内边距，让 LabelingToolbar 内部的 padding 生效 */
+  background: none; /* 移除默认背景，使用 LabelingToolbar 自己的背景 */
+}
+
+/* 为整个弹窗添加一个背景色和阴影，使其更像工具栏 */
+.labeling-dialog-no-header :deep(.el-dialog) {
+  background-color: #f0f2f5; /* 与 LabelingToolbar 内部颜色保持一致 */
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1); /* 增加阴影效果 */
+  border-radius: 4px; /* 轻微圆角 */
+  overflow: hidden; /* 防止内容溢出圆角 */
+  /* min-width: 250px; 根据实际内容调整，防止内容被挤压 */
+}
+
+/* 新增样式：自定义弹窗头部，包含标题和关闭按钮 */
+.labeling-dialog-header {
+  display: flex;
+  justify-content: space-between; /* 标题和按钮左右对齐 */
+  align-items: center; /* 垂直居中 */
+  padding: 8px 15px; /* 内边距 */
+  background-color: #e9edf2; /* 头部背景色，比主体稍深 */
+  border-bottom: 1px solid #dcdfe6; /* 底部边框 */
+  font-size: 14px;
+  font-weight: bold;
+  color: #303133;
+  cursor: grab; /* 提示可拖动 */
+}
+
+.labeling-dialog-header .el-button {
+  padding: 0; /* 移除按钮默认内边距 */
+  width: 24px; /* 固定按钮宽度 */
+  height: 24px; /* 固定按钮高度 */
+  font-size: 16px;
+  border: none; /* 移除边框 */
+  background: none; /* 移除背景 */
+}
+
+.labeling-dialog-header .el-button:hover {
+  background-color: #f56c6c; /* 鼠标悬停时背景色 */
+  color: #fff; /* 鼠标悬停时文字颜色 */
 }
 </style>

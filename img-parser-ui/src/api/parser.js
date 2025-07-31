@@ -27,3 +27,12 @@ export async function parseImage({ uid, mode, prompt }) {
   })
   return res.data
 }
+
+export async function assistLabel({ uid, mode, prompt }) {
+  const res = await axios.post(`${BASE_URL}/labeling/assist`, {
+    uid,
+    mode,
+    ...(prompt && { prompt })
+  })
+  return res.data
+}
