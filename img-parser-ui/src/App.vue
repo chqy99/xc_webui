@@ -51,7 +51,8 @@ import TopMenu from '@/views/TopMenu.vue'
 import SideNav from '@/views/SideNav.vue'
 import CanvasView from '@/views/CanvasView.vue'
 import AttributePanel from '@/views/AttributePanel.vue'
-import { parseImage } from '@/api/parser'
+import { ElMessage } from 'element-plus'
+import { uploadImage, parseImage } from '@/api/parser'
 
 const navWidth = ref(250)
 const attrHeight = ref(250)
@@ -107,8 +108,15 @@ function stopDrag() {
 const layers = ref([])
 const selectedLayer = ref(null)
 
-function onOpenImage(image) {
-  layers.value = [{ id: 'layer1', label: image.name, url: image.url, base64: image.base64 }]
+async function onOpenImage(image) {
+  const uid = await uploadImage(image.base64)
+  console.log('parseImage uid:', uid)
+  layers.value = [{
+    uid: uid,
+    label: image.name,
+    url: image.url,
+    base64: image.base64
+  }]
   selectedLayer.value = layers.value[0]
 }
 
@@ -117,18 +125,17 @@ function onSelectLayer(layer) {
 }
 
 async function onParseRequest({ mode, prompt }) {
-  if (!selectedLayer.value || !selectedLayer.value.base64) {
+  if (!selectedLayer.value || !selectedLayer.value.uid) {
     ElMessage.warning('请先打开图像')
     return
   }
 
   const data = await parseImage({
-    image_base64: selectedLayer.value.base64,
+    uid: selectedLayer.value.uid,  // ✅ 使用 uid 而不是 base64
     mode,
     prompt
   })
 
-  // 将解析结果存入当前图层
   selectedLayer.value.units = data.units || []
 }
 </script>

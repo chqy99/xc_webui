@@ -1,8 +1,27 @@
 import axios from 'axios'
 
-export async function parseImage({ image_base64, mode, prompt }) {
-  const res = await axios.post('http://localhost:8200/api/parse', {
-    image_base64,
+const BASE_URL = 'http://localhost:8200/api'
+
+/**
+ * 上传图像 base64，返回 uid
+ * @param {string} image_base64
+ * @returns {Promise<string>} uid
+ */
+export async function uploadImage(image_base64) {
+  const res = await axios.post(`${BASE_URL}/upload_image`, {
+    image_base64
+  })
+  return res.data.uid
+}
+
+/**
+ * 通过 uid 发起解析请求
+ * @param {{ uid: string, mode: string, prompt?: string }} options
+ * @returns {Promise<Object>} 解析结果
+ */
+export async function parseImage({ uid, mode, prompt }) {
+  const res = await axios.post(`${BASE_URL}/parse`, {
+    uid,
     mode,
     ...(prompt && { prompt })
   })
