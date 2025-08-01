@@ -33,32 +33,26 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useMainStore } from '@/store/main' // 导入 Store
 import VisualOverlay from '@/components/VisualOverlay.vue'
 
-const props = defineProps({
-  layer: Object
-})
+const store = useMainStore() // 使用 Store
 
 const wrapper = ref(null)
-
 const scale = ref(1)
 const minScale = 0.1
 const maxScale = 5
 const zoomStep = 0.1
-
 const translateX = ref(0)
 const translateY = ref(0)
-
 const selectedIndex = ref(null)
-
 const isDragging = ref(false)
 const lastMousePos = ref({ x: 0, y: 0 })
+const layer = computed(() => store.selectedLayer)
 
 const containerStyle = computed(() => ({
   transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`,
   transformOrigin: 'top left',
-  // [!code--]
-  // cursor: isDragging.value ? 'grabbing' : 'grab',
   display: 'inline-block',
   'user-select': 'none',
 }))
@@ -107,39 +101,17 @@ function onMouseMove(event) {
   lastMousePos.value = { x: event.clientX, y: event.clientY }
 }
 
-// [!code--]
-// function onClick(event) {
-//   if (!props.layer || !props.layer.units) return
-//   const wrapperRect = wrapper.value.getBoundingClientRect()
-//   const clickX = event.clientX - wrapperRect.left
-//   const clickY = event.clientY - wrapperRect.top
-//   const x = (clickX - translateX.value) / scale.value
-//   const y = (clickY - translateY.value) / scale.value
-//   const foundIndex = props.layer.units.findIndex(unit => {
-//     if (!unit.bbox) return false
-//     const { x1, y1, x2, y2 } = unit.bbox
-//     return x >= x1 && x <= x2 && y >= y1 && y <= y2
-//   })
-//   selectedIndex.value = foundIndex >= 0 ? foundIndex : null
-// }
-// [!code++]
 function onClick(event) {
-  if (!props.layer || !props.layer.units) return
+  // 从 store 获取当前图层信息
+  if (!store.selectedLayer || !store.selectedLayer.units) return
 
-  // 获取 .canvas-container 元素当前的屏幕位置和尺寸。
-  // 这个 rect 已经包含了 CSS 居中、手动拖拽(transform)和缩放(scale)的所有效果。
   const containerRect = event.currentTarget.getBoundingClientRect()
-
-  // 1. 计算点击位置相对于 .canvas-container 左上角的坐标
   const clickXInContainer = event.clientX - containerRect.left
   const clickYInContainer = event.clientY - containerRect.top
-
-  // 2. 将这个坐标根据当前的缩放比例，反向计算出在原始图片上的坐标
   const x = clickXInContainer / scale.value
   const y = clickYInContainer / scale.value
 
-  // 3. 判断是否命中 bbox (这部分逻辑不变)
-  const foundIndex = props.layer.units.findIndex(unit => {
+  const foundIndex = store.selectedLayer.units.findIndex(unit => {
     if (!unit.bbox) return false
     const { x1, y1, x2, y2 } = unit.bbox
     return x >= x1 && x <= x2 && y >= y1 && y <= y2
@@ -147,7 +119,6 @@ function onClick(event) {
 
   selectedIndex.value = foundIndex >= 0 ? foundIndex : null
 }
-
 </script>
 
 <style scoped>

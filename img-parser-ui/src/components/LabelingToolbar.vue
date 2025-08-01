@@ -9,53 +9,33 @@
     <el-button-group>
       <el-button @click="setLabelingMode('point')">点标注</el-button>
       <el-button @click="setLabelingMode('rectangle')">矩形标注</el-button>
-      <el-button @click="setLabelingMode('polygon')">多边形标注</el-button>
+      <el-button @click-="setLabelingMode('polygon')">多边形标注</el-button>
     </el-button-group>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
+import eventBus from '@/utils/eventBus';
+import { AppEvents } from '@/utils/eventTypes';
 
-// 定义 prop，如果父组件需要传递初始值
-const props = defineProps({
-  initialAssistLabeling: {
-    type: Boolean,
-    default: false
-  },
-  initialLabelingMode: {
-    type: String,
-    default: null // 'rectangle', 'polygon', 'point'
-  }
-});
-
-// 定义组件可以发出的事件
-const emit = defineEmits(['assist-labeling-request', 'set-labeling-mode']);
-
-// 内部状态，用于绑定 UI 控件
-const assistLabelingEnabled = ref(props.initialAssistLabeling);
-const currentLabelingMode = ref(props.initialLabelingMode);
-
-// 监听 props 变化，同步内部状态（如果父组件可以更新这些值）
-watch(() => props.initialAssistLabeling, (newVal) => {
-  assistLabelingEnabled.value = newVal;
-});
-watch(() => props.initialLabelingMode, (newVal) => {
-  currentLabelingMode.value = newVal;
-});
+// 这个组件现在只管理自己的 UI 状态，并通过事件总线对外通信
+const assistLabelingEnabled = ref(false);
 
 function toggleAssistLabeling() {
-  // 当辅助标注开启时，触发一个事件，将请求发送到父组件处理
   if (assistLabelingEnabled.value) {
-    emit('assist-labeling-request', { mode: 'sam2', prompt: 'current_annotations_info' });
+    // 发出事件，请求辅助标注
+    // 'prompt' 在实际应用中会包含当前的标注信息，这里是占位符
+    eventBus.emit(AppEvents.ASSIST_LABELING_REQUEST, {
+        mode: 'sam2',
+        prompt: 'current_annotations_info'
+    });
   }
-  // 注意：'prompt' 在实际应用中会包含当前的标注信息，用于 SAM 模型。这里是占位符。
 }
 
 function setLabelingMode(mode) {
-  currentLabelingMode.value = mode;
-  // 触发事件，将当前选中的标注模式传递给父组件
-  emit('set-labeling-mode', mode);
+  // 发出事件，请求切换标注模式
+  eventBus.emit(AppEvents.SET_LABELING_MODE, mode);
 }
 </script>
 

@@ -6,7 +6,7 @@
         <el-option v-for="m in modes" :key="m" :label="m" :value="m" />
       </el-select>
     </el-form-item>
-    <el-form-item label="提示词" v-if="mode === 'clip' || mode === 'groundingdino'">
+    <el-form-item label="提示词" v-if="['clip', 'groundingdino'].includes(selectedMode)">
       <el-input v-model="promptText" placeholder="如：cup, bottle" style="width: 180px;" />
     </el-form-item>
   </el-form>

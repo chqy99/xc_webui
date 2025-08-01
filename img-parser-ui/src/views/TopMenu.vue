@@ -6,8 +6,11 @@
     </el-sub-menu>
     <el-sub-menu index="edit" v-if="true">
       <template #title>编辑</template>
+      <!-- 点击时打开解析设置对话框 -->
       <el-menu-item index="parse_setting" @click="showDialog = true">解析</el-menu-item>
-      <el-menu-item index="labeling">标注工具</el-menu-item> </el-sub-menu>
+      <!-- 点击时发出事件，通知外部切换标注工具栏 -->
+      <el-menu-item index="labeling">标注工具</el-menu-item>
+    </el-sub-menu>
     <el-menu-item index="view">视图</el-menu-item>
     <el-menu-item index="help">帮助</el-menu-item>
 
@@ -32,31 +35,20 @@
 <script setup>
 import { ref } from 'vue'
 import ParseModeSelector from '@/components/ParseModeSelector.vue'
-// IMPORTANT: 移除 LabelingToolbar 的导入
+import eventBus from '@/utils/eventBus' // 导入 eventBus
+import { AppEvents } from '@/utils/eventTypes' // 导入事件类型
 
 const showDialog = ref(false)
 const mode = ref('semantic')
 const prompt = ref('')
-
-// 这个状态现在只需要控制菜单项自身的行为，不再直接控制工具栏的显示
-// const showLabelingToolbar = ref(false) // 可以删除或注释掉
-
-// 增加一个新的事件：用于通知 App.vue 切换标注工具栏弹窗的可见性
-const emit = defineEmits([
-  'open-image',
-  'parse-request',
-  'toggle-labeling-dialog', // 新增：通知 App.vue 切换弹窗
-  'assist-labeling-request',
-  'set-labeling-mode'
-])
 const fileInput = ref(null)
 
 function onSelect(index) {
   if (index === 'open-image') {
     fileInput.value.click()
   } else if (index === 'labeling') {
-    // 每次点击都发出事件，由 App.vue 决定是显示还是隐藏
-    emit('toggle-labeling-dialog');
+    // 触发 TOGGLE_LABELING_DIALOG 事件
+    eventBus.emit(AppEvents.TOGGLE_LABELING_DIALOG)
   }
 }
 
@@ -67,13 +59,15 @@ function onFileChange(e) {
   reader.onload = () => {
     const url = reader.result
     const base64 = url.split(',')[1]
-    emit('open-image', { name: file.name, url, base64 })
+    // 触发 OPEN_IMAGE 事件，并传递文件数据
+    eventBus.emit(AppEvents.OPEN_IMAGE, { name: file.name, url, base64 })
   }
   reader.readAsDataURL(file)
 }
 
 function onConfirm() {
-  emit('parse-request', { mode: mode.value, prompt: prompt.value })
+  // 触发 PARSE_REQUEST 事件，并传递解析设置
+  eventBus.emit(AppEvents.PARSE_REQUEST, { mode: mode.value, prompt: prompt.value })
   showDialog.value = false
 }
 </script>
