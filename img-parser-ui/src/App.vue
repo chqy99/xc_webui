@@ -33,7 +33,7 @@
             overflowY: 'auto'
           }"
         >
-          <AttributePanel />
+          <ImageParseUnitView />
         </el-footer>
       </el-container>
     </el-container>
@@ -69,7 +69,7 @@ import { AppEvents } from '@/utils/eventTypes'
 import TopMenu from '@/views/TopMenu.vue'
 import SideNav from '@/views/SideNav.vue'
 import CanvasView from '@/views/CanvasView.vue'
-import AttributePanel from '@/views/AttributePanel.vue'
+import ImageParseUnitView from '@/views/ImageParseUnitView.vue'
 import LabelingToolbar from '@/components/LabelingToolbar.vue'
 import { Close } from '@element-plus/icons-vue'
 

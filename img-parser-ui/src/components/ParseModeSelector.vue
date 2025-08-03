@@ -7,7 +7,7 @@
       </el-select>
     </el-form-item>
     <el-form-item label="提示词" v-if="['clip', 'groundingdino'].includes(selectedMode)">
-      <el-input v-model="promptText" placeholder="如：cup, bottle" style="width: 180px;" />
+      <el-input v-model="promptText" placeholder="button" style="width: 180px;" />
     </el-form-item>
   </el-form>
 </template>

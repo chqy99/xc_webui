@@ -16,17 +16,18 @@
     >
       <VisualOverlay
         v-if="layer"
-        :layer="layer"
         :selectedIndex="selectedIndex"
-        :showMask="true"
-        :showBbox="true"
-      />
+        :showMask="showMaskEnabled"   :showBbox="showBBoxEnabled"   />
     </div>
 
     <div class="zoom-controls">
       <el-button @click="zoomOut" size="small">-</el-button>
       <span>{{ (scale * 100).toFixed(0) }}%</span>
       <el-button @click="zoomIn" size="small">+</el-button>
+    </div>
+    <div class="overlay-controls">
+      <el-checkbox v-model="showMaskEnabled" label="显示遮罩" />
+      <el-checkbox v-model="showBBoxEnabled" label="显示边界框" />
     </div>
   </div>
 </template>
@@ -49,6 +50,9 @@ const selectedIndex = ref(null)
 const isDragging = ref(false)
 const lastMousePos = ref({ x: 0, y: 0 })
 const layer = computed(() => store.selectedLayer)
+
+const showMaskEnabled = ref(true)
+const showBBoxEnabled = ref(true)
 
 const containerStyle = computed(() => ({
   transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`,
@@ -130,11 +134,9 @@ function onClick(event) {
   height: 100%;
   overflow: hidden;
   position: relative;
-  /* [!code ++] */
   cursor: default; /* 默认光标 */
 }
 
-/* [!code ++] */
 /* 当 isDragging 为 true 时，wrapper 会被添加 .is-dragging 类 */
 .canvas-wrapper.is-dragging {
   cursor: grabbing; /* 正在拖拽的光标 */
@@ -158,6 +160,20 @@ function onClick(event) {
   right: 10px;
   display: flex;
   align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 4px 8px;
+  border-radius: 4px;
+  user-select: none;
+  z-index: 10;
+}
+
+.overlay-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   background: rgba(255, 255, 255, 0.8);
   padding: 4px 8px;
