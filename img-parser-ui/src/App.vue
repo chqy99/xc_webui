@@ -10,7 +10,7 @@
         <SideNav />
       </el-aside>
 
-      <div @mousedown="startDrag('nav')" style="width: 6px; cursor: col-resize; background: #ddd;"></div>
+      <div @mousedown="startDrag('nav', $event)" style="width: 6px; cursor: col-resize; background: #ddd;"></div>
 
       <el-container style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
         <el-main
@@ -20,7 +20,7 @@
           <CanvasView />
         </el-main>
 
-        <div @mousedown="startDrag('attr')" style="height: 6px; cursor: row-resize; background: #ddd;"></div>
+        <div @mousedown="startDrag('attr', $event)" style="height: 6px; cursor: row-resize; background: #ddd;"></div>
 
         <el-footer
           :style="{

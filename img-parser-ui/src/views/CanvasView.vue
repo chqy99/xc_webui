@@ -14,10 +14,7 @@
       :style="containerStyle"
       @click="onClick"
     >
-      <VisualOverlay
-        v-if="layer"
-        :selectedIndex="selectedIndex"
-        :showMask="showMaskEnabled"   :showBbox="showBBoxEnabled"   />
+      <VisualOverlay :clickCoord="clickCoord"/>
     </div>
 
     <div class="zoom-controls">
@@ -25,19 +22,14 @@
       <span>{{ (scale * 100).toFixed(0) }}%</span>
       <el-button @click="zoomIn" size="small">+</el-button>
     </div>
-    <div class="overlay-controls">
-      <el-checkbox v-model="showMaskEnabled" label="显示遮罩" />
-      <el-checkbox v-model="showBBoxEnabled" label="显示边界框" />
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useMainStore } from '@/store/main' // 导入 Store
 import VisualOverlay from '@/components/VisualOverlay.vue'
 
-const store = useMainStore() // 使用 Store
+const clickCoord = ref(null) // 原图坐标（x, y）
 
 const wrapper = ref(null)
 const scale = ref(1)
@@ -46,13 +38,8 @@ const maxScale = 5
 const zoomStep = 0.1
 const translateX = ref(0)
 const translateY = ref(0)
-const selectedIndex = ref(null)
 const isDragging = ref(false)
 const lastMousePos = ref({ x: 0, y: 0 })
-const layer = computed(() => store.selectedLayer)
-
-const showMaskEnabled = ref(true)
-const showBBoxEnabled = ref(true)
 
 const containerStyle = computed(() => ({
   transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`,
@@ -106,23 +93,12 @@ function onMouseMove(event) {
 }
 
 function onClick(event) {
-  // 从 store 获取当前图层信息
-  if (!store.selectedLayer || !store.selectedLayer.units) return
-
-  const containerRect = event.currentTarget.getBoundingClientRect()
-  const clickXInContainer = event.clientX - containerRect.left
-  const clickYInContainer = event.clientY - containerRect.top
-  const x = clickXInContainer / scale.value
-  const y = clickYInContainer / scale.value
-
-  const foundIndex = store.selectedLayer.units.findIndex(unit => {
-    if (!unit.bbox) return false
-    const { x1, y1, x2, y2 } = unit.bbox
-    return x >= x1 && x <= x2 && y >= y1 && y <= y2
-  })
-
-  selectedIndex.value = foundIndex >= 0 ? foundIndex : null
+  const rect = event.currentTarget.getBoundingClientRect()
+  const x = (event.clientX - rect.left - translateX.value) / scale.value
+  const y = (event.clientY - rect.top - translateY.value) / scale.value
+  clickCoord.value = { x, y }
 }
+
 </script>
 
 <style scoped>
@@ -160,20 +136,6 @@ function onClick(event) {
   right: 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 4px 8px;
-  border-radius: 4px;
-  user-select: none;
-  z-index: 10;
-}
-
-.overlay-controls {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  flex-direction: column;
   gap: 8px;
   background: rgba(255, 255, 255, 0.8);
   padding: 4px 8px;

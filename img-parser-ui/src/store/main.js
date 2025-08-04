@@ -30,7 +30,10 @@ export const useMainStore = defineStore('main', () => {
         url: imageFile.url,
         base64: imageFile.base64,
         units: [],
-        annotations: []
+        annotations: [],
+        showMask: true,
+        showBBox: true,
+        selectedUnitIndex: null,
       }
       layers.value = [newLayer]
       selectedLayerId.value = uid
@@ -103,6 +106,26 @@ export const useMainStore = defineStore('main', () => {
     showLabelingDialog.value = false
   }
 
+  function removeUnitsByUid(uids) {
+    if (!this.selectedLayer) return
+    this.selectedLayer.units = this.selectedLayer.units.filter(u => !uids.includes(u.uid))
+  }
+
+  function setSelectedUnitIndex(index) {
+    if (selectedLayer.value) {
+      selectedLayer.value.selectedUnitIndex = index
+    }
+  }
+
+  function updateUnitData(uid, key, value) {
+    if (selectedLayer.value) {
+      const unit = selectedLayer.value.units.find(u => u.uid === uid)
+      if (unit) {
+        unit[key] = value
+      }
+    }
+  }
+
   return {
     layers,
     selectedLayerId,
@@ -116,5 +139,8 @@ export const useMainStore = defineStore('main', () => {
     setLabelingMode,
     toggleLabelingDialog,
     closeLabelingDialog,
+    removeUnitsByUid,
+    setSelectedUnitIndex,
+    updateUnitData,
   }
 })
