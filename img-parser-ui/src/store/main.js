@@ -30,7 +30,7 @@ export const useMainStore = defineStore('main', () => {
         url: imageFile.url,
         base64: imageFile.base64,
         units: [],
-        annotations: [],
+        storage_units: [],
         showMask: true,
         showBBox: true,
         selectedUnitIndex: null,
@@ -125,6 +125,55 @@ export const useMainStore = defineStore('main', () => {
       }
     }
   }
+
+  function getUnitChanges() {
+    const current = selectedLayer.value?.units || []
+    const original = selectedLayer.value?.storage_units || []
+
+    const originalMap = Object.fromEntries(original.map(u => [u.uid, u]))
+    const currentMap = Object.fromEntries(current.map(u => [u.uid, u]))
+
+    const add = current.filter(u => !originalMap[u.uid])
+    const update = current.filter(u => {
+      const origin = originalMap[u.uid]
+      if (!origin) return false
+      return JSON.stringify(origin) !== JSON.stringify(u) // 简单比较，可优化
+    })
+    const deleteUids = original
+      .filter(o => !currentMap[o.uid])
+      .map(o => o.uid)
+
+    return { add, update, delete: deleteUids }
+  }
+
+  async function saveAllChanges() {
+    if (!selectedLayer.value) return
+
+    const { add, update, delete: delUids } = getUnitChanges()
+
+    try {
+      if (add.length) await api.addUnits(add.map(u => ({ ...u, layer_uid: selectedLayer.value.uid })))
+      if (update.length) await api.updateUnits(update.map(u => ({ ...u, layer_uid: selectedLayer.value.uid })))
+      if (delUids.length) await api.deleteUnits(delUids)
+
+      // 保存成功后更新 storage_units 为当前 units
+      selectedLayer.value.storage_units = JSON.parse(JSON.stringify(selectedLayer.value.units))
+      ElMessage.success('更改已保存')
+    } catch (err) {
+      console.error('保存失败:', err)
+      ElMessage.error('保存更改失败')
+    }
+  }
+
+  async function loadStorageUnitsFromServer(uid) {
+    const result = await api.loadUnitsByLayer(uid)
+    const layer = selectedLayer.value
+    if (layer) {
+      layer.units = result.map(u => ({ ...u }))
+      layer.storage_units = JSON.parse(JSON.stringify(layer.units))
+    }
+  }
+
 
   return {
     layers,
