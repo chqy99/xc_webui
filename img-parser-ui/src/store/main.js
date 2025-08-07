@@ -70,7 +70,6 @@ export const useMainStore = defineStore('main', () => {
 
     // getChanges 返回 { add: [], update: [], delete: [] }
     const { add, update, delete: delUids } = selectedLayer.value.getChanges();
-    ElMessage.info(`准备保存 ${add.length} 新增, ${update.length} 更新, ${delUids.length} 删除 的单元`);
     const uid = selectedLayer.value.uid;
 
     try {
@@ -79,8 +78,12 @@ export const useMainStore = defineStore('main', () => {
       // 1. 新增单元
       if (add.length) {
         try {
-          // 修正：将 `add` 数组作为 units 字段传递
-          await api.addResult({ uid, units: add });
+          const addResultData = {
+            uid,
+            units: add,
+            metadata: {}
+          };
+          await api.addResult({ result: addResultData });
         } catch (err) {
           all_success = false;
           ElMessage.error(err.response?.data?.detail || '新增失败');
@@ -90,8 +93,12 @@ export const useMainStore = defineStore('main', () => {
       // 2. 更新单元
       if (update.length) {
         try {
-          // 修正：将 `update` 数组作为 units 字段传递
-          await api.updateResult({ uid, units: update });
+          const updateResultData = {
+            uid,
+            units: update,
+            metadata: {}
+          };
+          await api.updateResult({ result: updateResultData });
         } catch (err) {
           all_success = false;
           ElMessage.error(err.response?.data?.detail || '更改失败');
@@ -115,8 +122,7 @@ export const useMainStore = defineStore('main', () => {
 
       // 所有操作成功后，同步前端状态
       selectedLayer.value.commitChanges();
-      // ElMessage.success('所有更改已成功保存！');
-
+      ElMessage.success('所有更改已成功保存！');
     } catch (err) {
       console.error('Save changes failed:', err);
       ElMessage.error('保存更改时发生未知错误');
