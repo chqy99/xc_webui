@@ -1,41 +1,29 @@
-// src/store/main.js
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import * as api from '@/api/parser' // 导入整个 API 模块
+import * as api from '@/api/parser'
+import { LayerData } from '@/types/layer_data'
 
 export const useMainStore = defineStore('main', () => {
-  // --- STATE ---
   const layers = ref([])
   const selectedLayerId = ref(null)
   const currentLabelingMode = ref(null)
   const showLabelingDialog = ref(false)
 
-  // --- GETTERS ---
-  const selectedLayer = computed(() => {
-    if (!selectedLayerId.value || layers.value.length === 0) return null
-    return layers.value.find(l => l.uid === selectedLayerId.value)
-  })
+  const selectedLayer = computed(() =>
+    layers.value.find(l => l.uid === selectedLayerId.value) || null
+  )
 
-  // --- ACTIONS ---
   async function openImage(imageFile) {
     try {
-      // 调用 API 层
       const uid = await api.uploadImage(imageFile.base64)
-      console.log('parseImage uid:', uid)
-
-      const newLayer = {
-        uid: uid,
+      const layer = new LayerData({
+        uid,
         label: imageFile.name,
         url: imageFile.url,
-        base64: imageFile.base64,
-        units: [],
-        storage_units: [],
-        showMask: true,
-        showBBox: true,
-        selectedUnitIndex: null,
-      }
-      layers.value = [newLayer]
+        base64: imageFile.base64
+      })
+      layers.value = [layer]
       selectedLayerId.value = uid
       ElMessage.success('图像已打开')
     } catch (error) {
@@ -44,27 +32,15 @@ export const useMainStore = defineStore('main', () => {
     }
   }
 
-  function selectLayer(layerId) {
-    selectedLayerId.value = layerId
-  }
-
   async function parseSelectedLayer({ mode, prompt }) {
-    if (!selectedLayer.value) {
-      ElMessage.warning('请先选择一个图层')
-      return
-    }
+    if (!selectedLayer.value) return ElMessage.warning('请先选择一个图层')
     try {
-      // 调用 API 层
       const data = await api.parseImage({
         uid: selectedLayer.value.uid,
         mode,
         prompt
       })
-
-      const layerToUpdate = layers.value.find(l => l.uid === selectedLayer.value.uid)
-      if (layerToUpdate) {
-        layerToUpdate.units = data.units || []
-      }
+      selectedLayer.value.setUnits(data.units || [])
       ElMessage.success(`'${mode}' 解析完成`)
     } catch (error) {
       console.error('Parse image failed:', error)
@@ -73,12 +49,8 @@ export const useMainStore = defineStore('main', () => {
   }
 
   async function assistLabelingRequest({ mode, prompt }) {
-    if (!selectedLayer.value) {
-      ElMessage.warning('请先选择一个图层进行辅助标注')
-      return
-    }
+    if (!selectedLayer.value) return ElMessage.warning('请先选择一个图层进行辅助标注')
     try {
-      // 调用 API 层
       const data = await api.assistLabel({
         uid: selectedLayer.value.uid,
         mode,
@@ -91,6 +63,93 @@ export const useMainStore = defineStore('main', () => {
       console.error('Assist labeling failed:', error)
       ElMessage.error(`辅助标注失败: ${errorMsg}`)
     }
+  }
+
+  async function saveAllChanges() {
+    if (!selectedLayer.value) return;
+
+    // getChanges 返回 { add: [], update: [], delete: [] }
+    const { add, update, delete: delUids } = selectedLayer.value.getChanges();
+    ElMessage.info(`准备保存 ${add.length} 新增, ${update.length} 更新, ${delUids.length} 删除 的单元`);
+    const uid = selectedLayer.value.uid;
+
+    try {
+      let all_success = true;
+
+      // 1. 新增单元
+      if (add.length) {
+        try {
+          // 修正：将 `add` 数组作为 units 字段传递
+          await api.addResult({ uid, units: add });
+        } catch (err) {
+          all_success = false;
+          ElMessage.error(err.response?.data?.detail || '新增失败');
+        }
+      }
+
+      // 2. 更新单元
+      if (update.length) {
+        try {
+          // 修正：将 `update` 数组作为 units 字段传递
+          await api.updateResult({ uid, units: update });
+        } catch (err) {
+          all_success = false;
+          ElMessage.error(err.response?.data?.detail || '更改失败');
+        }
+      }
+
+      // 3. 删除单元 (这部分调用是正确的)
+      if (delUids.length) {
+        try {
+          await api.deleteUnits(uid, delUids);
+        } catch (err) {
+          all_success = false;
+          ElMessage.error(err.response?.data?.detail || '删除失败');
+        }
+      }
+
+      if (!all_success) {
+        ElMessage.warning('部分更改未能保存');
+        return;
+      }
+
+      // 所有操作成功后，同步前端状态
+      selectedLayer.value.commitChanges();
+      // ElMessage.success('所有更改已成功保存！');
+
+    } catch (err) {
+      console.error('Save changes failed:', err);
+      ElMessage.error('保存更改时发生未知错误');
+    }
+  }
+
+  async function loadStorageUnitsFromServer(uid) {
+    try {
+      const units = await api.getResult(uid)
+      const layer = selectedLayer.value
+      if (layer) {
+        layer.loadStorageUnits(units)
+      }
+    } catch (err) {
+      console.error('加载远程 units 失败:', err)
+      ElMessage.error('加载存储单元失败')
+    }
+  }
+
+  function updateUnitData(uid, key, value) {
+    selectedLayer.value?.updateUnit(uid, key, value)
+  }
+
+  function removeUnitsByUid(uids) {
+    selectedLayer.value?.removeUnits(uids)
+  }
+
+  function setSelectedUnitIndex(index) {
+    selectedLayer.value?.selectUnit(index)
+  }
+
+  function selectLayer(uid) {
+    selectedLayerId.value = uid
   }
 
   function setLabelingMode(mode) {
@@ -106,75 +165,6 @@ export const useMainStore = defineStore('main', () => {
     showLabelingDialog.value = false
   }
 
-  function removeUnitsByUid(uids) {
-    if (!this.selectedLayer) return
-    this.selectedLayer.units = this.selectedLayer.units.filter(u => !uids.includes(u.uid))
-  }
-
-  function setSelectedUnitIndex(index) {
-    if (selectedLayer.value) {
-      selectedLayer.value.selectedUnitIndex = index
-    }
-  }
-
-  function updateUnitData(uid, key, value) {
-    if (selectedLayer.value) {
-      const unit = selectedLayer.value.units.find(u => u.uid === uid)
-      if (unit) {
-        unit[key] = value
-      }
-    }
-  }
-
-  function getUnitChanges() {
-    const current = selectedLayer.value?.units || []
-    const original = selectedLayer.value?.storage_units || []
-
-    const originalMap = Object.fromEntries(original.map(u => [u.uid, u]))
-    const currentMap = Object.fromEntries(current.map(u => [u.uid, u]))
-
-    const add = current.filter(u => !originalMap[u.uid])
-    const update = current.filter(u => {
-      const origin = originalMap[u.uid]
-      if (!origin) return false
-      return JSON.stringify(origin) !== JSON.stringify(u) // 简单比较，可优化
-    })
-    const deleteUids = original
-      .filter(o => !currentMap[o.uid])
-      .map(o => o.uid)
-
-    return { add, update, delete: deleteUids }
-  }
-
-  async function saveAllChanges() {
-    if (!selectedLayer.value) return
-
-    const { add, update, delete: delUids } = getUnitChanges()
-
-    try {
-      if (add.length) await api.addUnits(add.map(u => ({ ...u, layer_uid: selectedLayer.value.uid })))
-      if (update.length) await api.updateUnits(update.map(u => ({ ...u, layer_uid: selectedLayer.value.uid })))
-      if (delUids.length) await api.deleteUnits(delUids)
-
-      // 保存成功后更新 storage_units 为当前 units
-      selectedLayer.value.storage_units = JSON.parse(JSON.stringify(selectedLayer.value.units))
-      ElMessage.success('更改已保存')
-    } catch (err) {
-      console.error('保存失败:', err)
-      ElMessage.error('保存更改失败')
-    }
-  }
-
-  async function loadStorageUnitsFromServer(uid) {
-    const result = await api.loadUnitsByLayer(uid)
-    const layer = selectedLayer.value
-    if (layer) {
-      layer.units = result.map(u => ({ ...u }))
-      layer.storage_units = JSON.parse(JSON.stringify(layer.units))
-    }
-  }
-
-
   return {
     layers,
     selectedLayerId,
@@ -188,8 +178,10 @@ export const useMainStore = defineStore('main', () => {
     setLabelingMode,
     toggleLabelingDialog,
     closeLabelingDialog,
+    updateUnitData,
     removeUnitsByUid,
     setSelectedUnitIndex,
-    updateUnitData,
+    saveAllChanges,
+    loadStorageUnitsFromServer
   }
 })

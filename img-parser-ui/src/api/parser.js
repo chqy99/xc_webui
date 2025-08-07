@@ -36,3 +36,25 @@ export async function assistLabel({ uid, mode, prompt }) {
   })
   return res.data
 }
+
+export async function getResult(result_uid) {
+  const res = await axios.get(`${BASE_URL}/result`, {
+    params: { result_uid }
+  })
+  return res.data.units
+}
+
+export async function addResult(result) {
+  await axios.post(`${BASE_URL}/result/add`, result)
+}
+
+export async function updateResult(result) {
+  await axios.post(`${BASE_URL}/result/update`, result)
+}
+
+export async function deleteUnits(result_uid, unit_uids) {
+  await axios.post(`${BASE_URL}/units/delete`, {
+    result_uid,
+    unit_uids,
+  })
+}
