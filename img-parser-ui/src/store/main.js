@@ -142,6 +142,34 @@ export const useMainStore = defineStore('main', () => {
     }
   }
 
+  // 根据当前图片进行搜索（topk=1），将第一个结果的 units 作为 storageUnits 加载
+  async function searchStorageUnitsByCurrentImage() {
+    try {
+      const layer = selectedLayer.value
+      if (!layer) {
+        ElMessage.warning('请先打开或选择一张图片')
+        return
+      }
+      if (!layer.base64) {
+        ElMessage.warning('当前图层没有可用的图像数据')
+        return
+      }
+      const results = await api.searchResult('', layer.base64, 1)
+      const first = Array.isArray(results) ? results[0] : null
+      const units = first?.units || []
+      if (!units.length) {
+        ElMessage.info('未检索到匹配结果')
+        return
+      }
+      layer.loadStorageUnits(units)
+      ElMessage.success('已加载检索到的存储单元')
+    } catch (error) {
+      console.error('搜索并加载存储单元失败:', error)
+      const msg = error.response?.data?.detail || error.message || '搜索失败'
+      ElMessage.error(msg)
+    }
+  }
+
   function updateUnitData(uid, key, value) {
     selectedLayer.value?.updateUnit(uid, key, value)
   }
@@ -188,6 +216,7 @@ export const useMainStore = defineStore('main', () => {
     removeUnitsByUid,
     setSelectedUnitIndex,
     saveAllChanges,
-    loadStorageUnitsFromServer
+    loadStorageUnitsFromServer,
+    searchStorageUnitsByCurrentImage,
   }
 })

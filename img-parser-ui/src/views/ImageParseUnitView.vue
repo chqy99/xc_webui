@@ -7,6 +7,9 @@
         <el-button size="small" @click="deleteSelected" type="danger">删除选中</el-button>
         <el-button size="small" @click="saveChanges" type="primary">提交更改</el-button>
       </div>
+      <div class="right-tools">
+        <el-button size="small" type="success" @click="searchByImage">根据当前图片搜索</el-button>
+      </div>
     </div>
 
     <div v-if="units && units.length">
@@ -130,6 +133,10 @@ const onRowClick = (row: ImageParseUnit) => {
 const handleUpdate = (uid: string, key: string, value: any) => {
   store.updateUnitData(uid, key, value)
 }
+
+const searchByImage = () => {
+  store.searchStorageUnitsByCurrentImage()
+}
 </script>
 
 <style scoped>
@@ -145,6 +152,12 @@ const handleUpdate = (uid: string, key: string, value: any) => {
   display: flex;
   gap: 10px; /* 控制按钮之间的间距 */
   align-items: center;
+}
+
+.right-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 保持高亮行样式 */

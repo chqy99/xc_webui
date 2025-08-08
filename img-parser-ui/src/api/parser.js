@@ -37,6 +37,15 @@ export async function assistLabel({ uid, mode, prompt }) {
   return res.data
 }
 
+export async function searchResult(query_text, query_image_base64, topk = 5) {
+  const res = await axios.post(`${BASE_URL}/search`, {
+    query_text,
+    query_image_base64,
+    topk
+  })
+  return res.data
+}
+
 export async function getResult(result_uid) {
   const res = await axios.get(`${BASE_URL}/result`, {
     params: { result_uid }
